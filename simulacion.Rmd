@@ -1,0 +1,40 @@
+---
+title: "Simulación de producción eléctrica de una granja eólica"
+author: "Anderson Acuña, Marlon Barajas, Fabián Hernández"
+date: "2024-06-19"
+output: 
+  html_document: 
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Tratamiento y exploración de datos
+
+```{r}
+wind_data <- read.csv("./velocidad-viento-duitama-boyaca.csv")
+```
+
+Seleccionamos la columna relevante para la simulación, las cual es la que tiene 
+la velocidad del viento en metros por segundo.
+```{r}
+wind_data <- subset(wind_data,
+                    select = c("ValorObservado"))
+
+colnames(wind_data) <- c("wind_speed")
+
+head(wind_data)
+```
+
+Visualizamos las frecuencias de las velocidades de viento.
+```{r}
+hist(wind_data$wind_speed,
+     ylim = c(0, 350),
+     col = "orange",
+     main = "Histograma de las velocidades del viento",
+     xlab = "Velocidad del viento [m/s]",
+     ylab = "Frecuencia absoluta")
+```
+
