@@ -19,7 +19,8 @@ knitr::opts_chunk$set(echo = TRUE)
 wind_data <- read.csv("./velocidad-viento-duitama-boyaca.csv")
 ```
 
-Se selecciona la columna relevante para la simulación, que contiene los valores de la velocidad del viento en metros por segundo.
+Se selecciona la columna relevante para la simulación, que contiene los valores 
+de la velocidad del viento en metros por segundo.
 ```{r}
 wind_data <- subset(wind_data, select = c("ValorObservado"))
 colnames(wind_data) <- c("wind_speed")
@@ -37,18 +38,143 @@ hist(wind_data$wind_speed,
 ```
 
 # Función de potencia
+
 ```{r}
-p <- function(v) {
-  if(v > 4 & v <= 14) return((25.12 - 39.05*v + 7.21*(v^2)) * 1.5)
-  else if(v > 14 & v <= 20) return(1500)
+power <- function(wind_speed) {
+  if(wind_speed > 4 & wind_speed <= 14) return((25.12 - 39.05*wind_speed + 7.21*(wind_speed^2)) * 1.5)
+  else if(wind_speed > 14 & wind_speed <= 20) return(1500)
   else return(0)
 }
 ```
 
+# Función de velocidad de viento
 
+Se construye la función que optimiza el parámetro $\lambda$ para la función de 
+distribución de Weibull.
+```{r}
+optimize_lambda <- function(wind_speeds, alpha) {
+  lambda = ((length(wind_speeds) * alpha) / (alpha * sum(wind_speeds ** alpha))) ** (1 / alpha)
+  
+  return(lambda)
+}
+```
 
+Se implementa la función de densidad de probabilidad de Weibull.
+```{r}
+density_weibull <- function(wind_speed, lambda, alpha) {
+  alpha * lambda^alpha * wind_speed^(alpha - 1) * exp(-(lambda*wind_speed)^alpha)
+}
 
+cummulative_weibull <- function(wind_speed, lambda, alpha) {
+  1 - exp(-(lambda * wind_speed) ** alpha)
+}
+```
 
+Una primera exploración al ajuste.
+```{r}
+alpha = 1.8
+lambda = optimize_lambda(wind_speeds = wind_data$wind_speed, alpha = alpha)
+
+hist(wind_data$wind_speed,
+     freq = FALSE,
+     ylim = c(0, 1),
+     col = "orange",
+     main = "Distribución de Weibull para los datos",
+     xlab = "Velocidad del viento", 
+     ylab = "Densidad de probabilidad")
+curve(density_weibull(x, lambda = lambda, alpha = alpha), 
+      from = 0,
+      to = 6, 
+      col = "red",
+      add = TRUE)
+```
+
+Función generadora utilizando la función inversa.
+$$
+F_{(x)} = 1 - e^{-(\lambda v)^\alpha}, v > 0 \\
+U = 1 - e^{-(\lambda v)^\alpha} \\
+e^{-(\lambda v)^\alpha} = 1 - U \\
+-(\lambda v)^\alpha = Ln(1 - U) \\
+\lambda v = \sqrt{-Ln(1 - U)} \\
+v = \frac{{(-Ln(1 - U))}^{1/\alpha}}{\lambda}
+$$
+
+```{r}
+random_weibull <- function(lambda, alpha) {
+  
+  wind_speed <- ((-log(1 - runif(1))) ** (1 / alpha)) / (lambda)
+  
+  return(wind_speed)
+}
+```
+
+```{r}
+tests <- c()
+for (iter in 1:1000) {
+  tests <- c(tests, random_weibull(lambda = lambda, alpha = alpha))
+}
+
+hist(tests,
+     freq = FALSE,
+     ylim = c(0, 1),
+     col = "orange",
+     main = "Función de generación aletoria de Weibull",
+     xlab = "Velocidad del viento", 
+     ylab = "Densidad de probabilidad")
+```
+
+# Función de falla de los generadores
+
+La función de distribución exponencial para la falla de un generador eólico 
+sería:
+```{r}
+curve(dexp(x, rate = 1/72), 
+      from = 0, 
+      to = 168, 
+      col = "blue",
+      main = "Distribución exponencial de las fallas",
+      xlab = "Hora de la semana",
+      ylab = "Función de densidad")
+```
+
+Basándonos en la función exponencial, la función inversa sería:
+$$
+x = -\frac{1}{\lambda}Ln(1 - F_{(x)})
+$$
+```{r}
+inverse_exponential <- function(lambda, value) {
+  value_inverse = - (1 / lambda) * log(value)
+  return(value_inverse)
+}
+
+random_exponential <- function(trials, lambda) {
+  res = c()
+  
+  for (trial in 1:trials) {
+    res = c(res, inverse_exponential(lambda, runif(1)))
+  }
+  
+  return(res)
+}
+```
+
+```{r}
+hours <- 168
+failures_times <- random_exponential(trials = 168, lambda = 1/72)
+failures <- cumsum(failures_times)
+failures <- failures[failures <= hours]
+                 
+energy <- 0
+
+for(hour in 1:hours) {
+  if(hour %in% failures){
+    hour <- hour + 8
+  }else{
+    energy <- energy + power(random_weibull(lambda = lambda, alpha = alpha))
+    hour <- hour + 1
+  }
+}
+```
 
 
 
