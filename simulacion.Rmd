@@ -288,7 +288,21 @@ hist(energy_means,
      ylab = "Frecuencia absoluta")
 ```
 
+```{r}
+mean_energy <- mean(energy_means)
+sd_energy <- sd(energy_means)
 
+n <- length(energy_means)
+se <- sd_energy / sqrt(n)
+
+alpha <- 0.05 
+df <- n - 1  
+t_critical <- qt(1 - alpha/2, df)
+ci_lower <- mean_energy - t_critical * se
+ci_upper <- mean_energy + t_critical * se
+
+paste("Intervalo de confianza del 95% para la media:", ci_lower, "-", ci_upper)
+```
 
 
 
