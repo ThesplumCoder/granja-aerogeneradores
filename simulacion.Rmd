@@ -41,9 +41,15 @@ hist(wind_data$wind_speed,
 
 ```{r}
 power <- function(wind_speed) {
-  if(wind_speed > 4 & wind_speed <= 14) return((25.12 - 39.05*wind_speed + 7.21*(wind_speed^2)) * 1.5)
-  else if(wind_speed > 14 & wind_speed <= 20) return(1500)
-  else return(0)
+  res <- 0
+  if(wind_speed > 4 && wind_speed <= 14) {
+    res <- 25.12 - (39.05 * wind_speed) + (7.21*(wind_speed ** 2)) * 1.5
+  } else if(wind_speed > 14 && wind_speed <= 20) {
+    res <- 1500
+  } else {
+    res <- 0
+  }
+  return(res)
 }
 ```
 
@@ -180,36 +186,106 @@ random_poisson <- function(trials, lambda) {
 }
 ```
 
+Contruímos la función que nos va a generar las horas de falla y reparación de un 
+generador eólico.
 ```{r}
-hours <- 168
-failures_amount <- random_poisson(trials = 1, lambda = 2)
-failures_times <- c()
-repairs_times <- c()
-
-while(length(failures_times) < failures_amount) {
-  fail <- random_exponential(trials = 1, lambda = 1/72)
-  if (fail < hours) {
-    if (length(failures_times) == 0) {
-      failures_times <- c(failures_times, fail)
-      repairs_times <- c(repairs_times, fail + 8)
-    }
-    if (fail > tail(repairs_times, n = 1)) {
-      failures_times <- c(failures_times, fail)
-      repairs_times <- c(repairs_times, fail + 8)
+dead_times_checker <- function(failures, new_failure) {
+  flag = FALSE
+  
+  for (fail in failures) {
+    upper_limit = fail + 8
+    lower_limit = fail - 8
+    if (new_failure >= lower_limit && new_failure <= upper_limit) {
+      flag = TRUE
+      break
     }
   }
+  
+  return(flag)
 }
 
-plot(x = failures_times, 
-     y = 1:length(failures_times), 
-     xlim = c(0, hours),
+failures_generator <- function() {
+  hours <- 168
+  failures_amount <- 0
+  while (TRUE) {
+    failures_amount <- random_poisson(trials = 1, lambda = 2)
+    if (failures_amount > 0) {
+      break
+    }
+  }
+  failures_times <- c()
+  
+  while(length(failures_times) < failures_amount) {
+    fail <- trunc(random_exponential(trials = 1, lambda = 1/72))
+    if (fail < hours) {
+      if (length(failures_times) == 0) {
+        failures_times <- c(failures_times, fail)
+      } else if (!dead_times_checker(failures = failures_times, new_failure = fail)) {
+        failures_times <- c(failures_times, fail)
+      }
+    }
+  }
+  
+  return(failures_times)
+}
+```
+
+Visualizamos el funcionamiento del generador.
+```{r}
+test_times = failures_generator()
+
+plot(x = test_times, 
+     y = 1:length(test_times), 
+     xlim = c(0, 168),
      col = "red",
      main = "Visualización de los pares falla-reparación",
      xlab = "Hora de la semana",
      ylab = "Número del par")
-points(x = sort(failures_times) + 8, 
-       y = 1:length(failures_times),
+points(x = test_times + 8, 
+       y = 1:length(test_times), 
        col = "blue")
+```
+
+
+# Simulación de generador
+
+Utilizando todos los modelos ajustados previamente, simulamos un generador.
+
+```{r}
+energy_generator <- function() {
+  energy <- 0
+  fails <- sort(failures_generator())
+  
+  for (hour in 0:168) {
+    if (hour %in% fails) {
+      hour = hour + 8
+    } else {
+      energy = energy + power(random_weibull(lambda = lambda, alpha = alpha))
+    }
+  }
+  return(energy)
+}
+```
+
+# Simulación de granja
+
+```{r}
+energy_means <- c()
+
+for(repetition in 1:5000) {
+  energy <- 0
+  for(generator in 1:10) {
+    energy <- energy + energy_generator()
+  }
+  energy_means <- c(energy_means, (energy / 10))
+}
+
+hist(energy_means,
+     breaks = 30,
+     col = "green",
+     main = "Histograma de promedios de generación de energía",
+     xlab = "Promedio de energía semanal",
+     ylab = "Frecuencia absoluta")
 ```
 
 
