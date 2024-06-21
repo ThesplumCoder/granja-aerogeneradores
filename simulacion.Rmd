@@ -1,6 +1,6 @@
 ---
 title: "Simulación de producción eléctrica de una granja eólica"
-author: "Anderson Acuña, Marlon Barajas, Fabián Hernández"
+integrantes: "Anderson Acuña - 2191965, Marlon Barajas - 2202042, Fabián Hernández - 2191925"
 date: "2024-06-19"
 output:
   html_document:
