@@ -159,21 +159,57 @@ random_exponential <- function(trials, lambda) {
 ```
 
 ```{r}
-hours <- 168
-failures_times <- random_exponential(trials = 168, lambda = 1/72)
-failures <- cumsum(failures_times)
-failures <- failures[failures <= hours]
-                 
-energy <- 0
+random_poisson <- function(trials, lambda) {
+  
+  res = c()
+  for(trial in 1:trials) {
+    limit = runif(n = 1)
+    
+    i = 0
+    p = exp(-lambda)
+    F = p
+    
+    while(limit > F) {
+      p = (lambda * p) / (i + 1)
+      F = F + p
+      i = i + 1
+    }
+    res = c(res, i)
+  }
+  return(res)
+}
+```
 
-for(hour in 1:hours) {
-  if(hour %in% failures){
-    hour <- hour + 8
-  }else{
-    energy <- energy + power(random_weibull(lambda = lambda, alpha = alpha))
-    hour <- hour + 1
+```{r}
+hours <- 168
+failures_amount <- random_poisson(trials = 1, lambda = 2)
+failures_times <- c()
+repairs_times <- c()
+
+while(length(failures_times) < failures_amount) {
+  fail <- random_exponential(trials = 1, lambda = 1/72)
+  if (fail < hours) {
+    if (length(failures_times) == 0) {
+      failures_times <- c(failures_times, fail)
+      repairs_times <- c(repairs_times, fail + 8)
+    }
+    if (fail > tail(repairs_times, n = 1)) {
+      failures_times <- c(failures_times, fail)
+      repairs_times <- c(repairs_times, fail + 8)
+    }
   }
 }
+
+plot(x = failures_times, 
+     y = 1:length(failures_times), 
+     xlim = c(0, hours),
+     col = "red",
+     main = "Visualización de los pares falla-reparación",
+     xlab = "Hora de la semana",
+     ylab = "Número del par")
+points(x = sort(failures_times) + 8, 
+       y = 1:length(failures_times),
+       col = "blue")
 ```
 
 
